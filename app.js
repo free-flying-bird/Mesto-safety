@@ -21,10 +21,12 @@ mongoose.connect('mongodb://localhost:27017/mydb', {
   useFindAndModify: false,
 });
 
-app.post('/signin', login);
 app.post('/signup', createUser);
+app.post('/signin', login);
 
-app.use('/', auth, usersRouter, cardsRouter);
+app.use(auth);
+
+app.use('/', usersRouter, cardsRouter);
 app.use((req, res) => {
   res.status(404).send({ message: 'Запрашиваемый ресурс не найден' });
 });

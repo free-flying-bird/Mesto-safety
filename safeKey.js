@@ -1,2 +1,1 @@
-// used random liters
-module.exports.secretKey = 'qetuo-adgjl-zcbm';
+module.exports.safeKey = () => 'qetuo-adgjl-zcbm';

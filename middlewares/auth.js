@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const { safekey } = require('../safeKey');
+const { safeKey } = require('../safeKey');
 
 // eslint-disable-next-line consistent-return
 module.exports = (req, res, next) => {
@@ -9,7 +9,7 @@ module.exports = (req, res, next) => {
   const token = req.cookies.jwt;
   let payload;
   try {
-    payload = jwt.verify(token, safekey);
+    payload = jwt.verify(token, safeKey());
   } catch (err) {
     return res.status(401).send({ message: 'Пользователь не авторизован' });
   }
