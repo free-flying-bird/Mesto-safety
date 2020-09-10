@@ -10,7 +10,7 @@ module.exports.getCards = (req, res) => {
 
 module.exports.createCard = (req, res) => {
   const { name, link } = req.body;
-  const userId = req.user.id;
+  const userId = req.user._id;
   Card.create({ name, link, owner: userId })
     // eslint-disable-next-line arrow-parens
     .then(card => res.send({ data: card }))
@@ -24,18 +24,20 @@ module.exports.createCard = (req, res) => {
 };
 
 module.exports.deleteCard = (req, res) => {
-  Card.findByIdAndDelete(req.params.id)
-    // eslint-disable-next-line arrow-parens
+  Card.findById(req.params.id)
+    .orFail()
     .then((card) => {
-      if (!card) {
-        res.status(404).send({ message: 'Нет карточки с таким ID' });
+      const { owner } = card;
+      if (req.user._id === owner.toString()) {
+        Card.findByIdAndRemove(req.params.id)
+          .then(() => res.send({ message: 'Карточка успешно удалена' }));
       } else {
-        res.status(200).send({ data: card });
+        res.status(403).send({ message: 'Нет доступа' });
       }
     })
     .catch((err) => {
       if (err.name === 'ValidationError') {
-        res.status(400).send({ message: 'Переданы некорректные данные' });
+        res.status(401).send({ message: 'Переданы некорректные данные' });
       } else {
         res.status(500).send({ message: 'Произошла ошибка' });
       }
