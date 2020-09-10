@@ -20,6 +20,9 @@ module.exports.createUser = (req, res) => {
   const {
     name, about, avatar, email, password,
   } = req.body;
+  if (!password) {
+    return res.status(400).send({ message: 'Введите пароль' });
+  }
   if (!/\S{8,}/.test(password)) {
     return res.status(400).send({ message: 'Введите пароль не менее 8 знаков' });
   }
@@ -42,8 +45,8 @@ module.exports.createUser = (req, res) => {
       if (err.name === 'ValidationError') {
         return res.status(401).send({ message: 'Заполните все необходимые данные' });
       }
-      if (err.code === 11000) {
-        return res.status(401).send({ message: 'Пользователь с таким Email уже существует' });
+      if (err.name === 'MongoError' || err.code === 11000) {
+        return res.status(409).send({ message: 'Пользователь с таким Email уже существует' });
       }
       return res.status(500).send({ message: 'Произошла ошибка' });
     });
