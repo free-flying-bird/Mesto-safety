@@ -34,7 +34,7 @@ module.exports.createUser = (req, res, next) => {
       avatar: user.avatar,
     }))
     .catch((err) => {
-      if (err.message === 'celebrate request validation failed') {
+      if (err.message === 'ValidationError') {
         throw new BadRequestError(err.message);
       }
       if (err.name === 'MongoError' || err.code === 11000) {
