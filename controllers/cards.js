@@ -1,14 +1,17 @@
 const Card = require('../models/card');
+const BadRequestError = require('../errors/BadRequestError');
+const AuthError = require('../errors/AuthError');
+const ForbiddenError = require('../errors/ForbiddenError');
 
-module.exports.getCards = (req, res) => {
+module.exports.getCards = (req, res, next) => {
   Card.find({})
     .populate('owner')
     // eslint-disable-next-line arrow-parens
     .then(cards => res.send({ data: cards }))
-    .catch(() => res.status(500).send({ message: 'Произошла ошибка' }));
+    .catch(next);
 };
 
-module.exports.createCard = (req, res) => {
+module.exports.createCard = (req, res, next) => {
   const { name, link } = req.body;
   const userId = req.user._id;
   Card.create({ name, link, owner: userId })
@@ -16,14 +19,14 @@ module.exports.createCard = (req, res) => {
     .then(card => res.send({ data: card }))
     .catch((err) => {
       if (err.name === 'ValidationError') {
-        res.status(400).send({ message: 'Переданы некорректные данные' });
+        throw new BadRequestError('Переданы некорректные данные');
       } else {
-        res.status(500).send({ message: 'Произошла ошибка' });
+        next(err);
       }
     });
 };
 
-module.exports.deleteCard = (req, res) => {
+module.exports.deleteCard = (req, res, next) => {
   Card.findById(req.params.id)
     .orFail()
     .then((card) => {
@@ -31,15 +34,12 @@ module.exports.deleteCard = (req, res) => {
       if (req.user._id === owner.toString()) {
         Card.findByIdAndRemove(req.params.id)
           .then(() => res.send({ message: 'Карточка успешно удалена' }));
-      } else {
-        res.status(403).send({ message: 'Нет доступа' });
-      }
+      } throw new ForbiddenError('Нет доступа');
     })
     .catch((err) => {
       if (err.name === 'ValidationError') {
-        res.status(401).send({ message: 'Переданы некорректные данные' });
-      } else {
-        res.status(500).send({ message: 'Произошла ошибка' });
-      }
-    });
+        throw new AuthError('Переданы некорректные данные');
+      } else next(err);
+    })
+    .catch(next);
 };

@@ -1,31 +1,23 @@
+const { NODE_ENV, JWT_SECRET } = process.env;
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/user');
-const { safeKey } = require('../safeKey');
+const NotFoundError = require('../errors/NotFoundError');
+const BadRequestError = require('../errors/BadRequestError');
+const ConflictingRequestError = require('../errors/ConflictingRequestError');
+const AuthError = require('../errors/AuthError');
 
-module.exports.getUsers = (req, res) => {
+module.exports.getUsers = (req, res, next) => {
   User.find({})
     // eslint-disable-next-line arrow-parens
     .then(users => res.send({ data: users }))
-    .catch((err) => {
-      if (err.name === 'ValidationError') {
-        res.status(400).send({ message: 'Переданы  данные' });
-      } else {
-        res.status(500).send({ message: 'Произошла ошибка' });
-      }
-    });
+    .catch(next);
 };
 
-module.exports.createUser = (req, res) => {
+module.exports.createUser = (req, res, next) => {
   const {
     name, about, avatar, email, password,
   } = req.body;
-  if (!password) {
-    return res.status(400).send({ message: 'Введите пароль' });
-  }
-  if (!/\S{8,}/.test(password)) {
-    return res.status(400).send({ message: 'Введите пароль не менее 8 знаков' });
-  }
   return bcrypt.hash(password, 10)
     .then((hash) => User.create({
       name,
@@ -42,22 +34,22 @@ module.exports.createUser = (req, res) => {
       avatar: user.avatar,
     }))
     .catch((err) => {
-      if (err.name === 'ValidationError') {
-        return res.status(401).send({ message: 'Заполните все необходимые данные' });
+      if (err.message === 'ValidationError') {
+        throw new BadRequestError(err.message);
       }
       if (err.name === 'MongoError' || err.code === 11000) {
-        return res.status(409).send({ message: 'Пользователь с таким Email уже существует' });
-      }
-      return res.status(500).send({ message: 'Произошла ошибка' });
-    });
+        throw new ConflictingRequestError('Указанный email уже занят');
+      } else next(err);
+    })
+    .catch(next);
 };
 
-module.exports.login = (req, res) => {
+module.exports.login = (req, res, next) => {
   const { email, password } = req.body;
 
   return User.findUserByCredentials(email, password)
     .then((user) => {
-      const token = jwt.sign({ _id: user._id }, safeKey(), {});
+      const token = jwt.sign({ _id: user._id }, NODE_ENV === 'production' ? JWT_SECRET : 'secret-key', { expiresIn: '7d' });
       res.cookie('jwt', token, {
         maxAge: 3600000 * 24 * 7,
         httpOnly: true,
@@ -67,22 +59,22 @@ module.exports.login = (req, res) => {
         .end();
     })
     .catch(() => {
-      res.status(400).send({ message: 'Неверная почта или пароль' });
-    });
+      throw new AuthError('Неверная почта или пароль');
+    })
+    .catch(next);
 };
 
-module.exports.getUsersById = (req, res) => {
+module.exports.getUsersById = (req, res, next) => {
   User.findById(req.params.id)
     .orFail(new Error('notFound'))
-    // eslint-disable-next-line arrow-parens
     .then((user) => {
       res.status(200).send({ data: user });
     })
     .catch((err) => {
       if (err === 'notFound') {
-        res.status(404).send({ message: 'Нет пользователя с таким ID' });
+        throw new NotFoundError('Пользователь с таким ID не найден');
       } else {
-        res.status(500).send({ message: 'Произошла ошибка' });
+        next(err);
       }
     });
 };
